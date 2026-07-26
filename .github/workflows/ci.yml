@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  contracts:
+    name: Contracts — compile & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies (TronBox)
+        run: npm ci
+
+      - name: Compile contracts
+        run: npm run compile
+
+      # TronBox needs a local TRON node to run tests against. The
+      # tronbox/tre image bundles java-tron in "solidity" mode, which
+      # boots fast and is what TronBox's own docs recommend for CI.
+      - name: Start local TRON node (tre)
+        run: |
+          docker run -d --name tron -p 9090:9090 \
+            tronbox/tre \
+            -p "3000000,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+          echo "Waiting for local node to be ready..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:9090/wallet/getnowblock > /dev/null; then
+              echo "Node is up"; break
+            fi
+            sleep 2
+          done
+
+      - name: Run contract tests
+        run: npm test
+
+  backend:
+    name: Backend — lint & test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: tron_wallet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://user:password@localhost:5432/tron_wallet_test
+      JWT_SECRET: ci_test_secret
+      TRON_FULL_HOST: https://api.shasta.trongrid.io
+      TRON_NETWORK: shasta
+      FEE_LIMIT_SUN: '100000000'
+      MIN_TRX_RESERVE: '50'
+      SPONSOR_DELEGATION_LIMIT_SUN: '5000000'
+      SPONSOR_GRACE_PERIOD_HOURS: '24'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+      - name: Run migrations against test DB
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+  secrets-scan:
+    name: Scan for committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

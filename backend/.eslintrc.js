@@ -1,0 +1,16 @@
+module.exports = {
+  env: {
+    node: true,
+    es2021: true,
+    mocha: true,
+  },
+  extends: ['eslint:recommended'],
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'script',
+  },
+  rules: {
+    'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'no-console': 'off',
+  },
+};

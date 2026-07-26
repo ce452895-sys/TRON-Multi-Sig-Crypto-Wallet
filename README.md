@@ -106,14 +106,17 @@ tron-wallet/
 │   ├── test/
 │   ├── .env.example
 │   └── package.json
-├── frontend/                   # optional
+├── frontend/                   # not yet built — next phase
 ├── docs/
-│   ├── MULTISIG.md
-│   └── DEPLOYMENT.md
+│   └── MULTISIG.md             # native + contract-backed multisig reference
 ├── .github/
-│   ├── workflows/ci.yml
-│   └── ISSUE_TEMPLATE/
+│   ├── workflows/ci.yml        # contracts + backend + secrets-scan jobs
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.md
+│   │   └── feature_request.md
+│   └── pull_request_template.md
 ├── docker-compose.yml
+├── .gitignore
 └── README.md
 ```
 
@@ -451,16 +454,26 @@ git push origin feat/multisig-service
 
 ## CI/CD
 
-`.github/workflows/ci.yml` should run on every PR:
+`.github/workflows/ci.yml` runs on every PR and push to `main`/`develop`,
+as three parallel jobs:
 
-- `npm ci`
-- Lint (`eslint`)
-- Unit tests
-- Integration tests against Shasta testnet (using repo secrets for faucet
-  keys — never commit real keys)
+1. **`contracts`** — installs TronBox, compiles `contracts/`, boots a local
+   TRON node (`tronbox/tre` Docker image) and runs `test/*.test.js` against it.
+2. **`backend`** — installs backend deps, runs `eslint`, spins up a real
+   Postgres service container, runs migrations, then runs
+   `backend/test/*.test.js`.
+3. **`secrets-scan`** — runs [Gitleaks](https://github.com/gitleaks/gitleaks)
+   over the full history on every push, so an accidentally-committed key
+   or token gets flagged before it's mistaken for safe.
 
-Add TRON credentials as **GitHub Actions secrets**, not in the repo:
-`Settings → Secrets and variables → Actions`.
+None of these jobs need real TRON credentials to pass — contract tests run
+against a local node, backend tests run against a local Postgres. If you
+add integration tests that hit Shasta/Nile directly, add those credentials
+as **GitHub Actions secrets** (`Settings → Secrets and variables →
+Actions`), never in the repo.
+
+Branch protection (`Settings → Branches`) should require these checks to
+pass, plus at least one review, before merging to `main`.
 
 ---
 
