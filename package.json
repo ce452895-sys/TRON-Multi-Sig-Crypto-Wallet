@@ -1,0 +1,16 @@
+{
+  "name": "tron-multisig-crypto-wallet",
+  "version": "0.1.0",
+  "description": "Multi-signature TRON wallet — smart contract, backend API, and GitHub workflow.",
+  "private": true,
+  "scripts": {
+    "compile": "tronbox compile",
+    "migrate:shasta": "tronbox migrate --network shasta",
+    "migrate:nile": "tronbox migrate --network nile",
+    "test": "tronbox test --network development"
+  },
+  "devDependencies": {
+    "tronbox": "^3.2.0"
+  },
+  "license": "MIT"
+}

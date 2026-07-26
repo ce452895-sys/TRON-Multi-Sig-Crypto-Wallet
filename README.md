@@ -86,6 +86,13 @@ coordinates proposals, collects signatures, and relays the final broadcast.
 
 ```
 tron-wallet/
+├── contracts/
+│   └── MultiSigWallet.sol      # on-chain submit/confirm/execute approval layer
+├── migrations/
+│   └── 2_deploy_multisig.js
+├── test/
+│   └── MultiSigWallet.test.js
+├── tronbox-config.js
 ├── backend/
 │   ├── src/
 │   │   ├── controllers/       # route handlers
@@ -217,6 +224,28 @@ signer list and threshold:
 
 See `docs/MULTISIG.md` for the full permission JSON schema and example
 TronWeb calls.
+
+### On-chain approval contract
+
+`contracts/MultiSigWallet.sol` implements an optional, additional layer on
+top of native account permissions: a submit → confirm → execute contract
+that stores proposal/confirmation history on-chain and supports arbitrary
+call data (so it can call TRC-20 `transfer`, not just send TRX). Owner and
+threshold changes can only happen via a fully-confirmed transaction that
+calls back into the contract itself — no single signer, and no external
+account, can change the signer set unilaterally.
+
+```bash
+npm install
+# set MULTISIG_OWNERS and MULTISIG_THRESHOLD, then:
+npm run migrate:shasta
+npm test
+```
+
+See inline NatSpec comments in the contract for details on each function,
+and `test/MultiSigWallet.test.js` for the full behavior spec (threshold
+enforcement, double-confirmation prevention, reentrancy-safe execution
+ordering, and the self-call-only owner management guard).
 
 ---
 
@@ -455,7 +484,7 @@ Add TRON credentials as **GitHub Actions secrets**, not in the repo:
 - [ ] Resource marketplace integration (auto-rent Energy when reserves run low)
 - [ ] Hardware wallet (Ledger) signer support
 - [ ] Notification webhooks for pending signatures
-- [ ] Optional smart-contract-based approval layer (for time-locks, spend limits)
+- [x] Optional smart-contract-based approval layer (`contracts/MultiSigWallet.sol`) — time-locks and spend limits still open
 
 ---
 
