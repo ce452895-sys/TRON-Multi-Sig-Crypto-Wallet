@@ -74,23 +74,41 @@ const unsignedTx = await tronWeb.transactionBuilder.sendTrx(
   { permissionId: 2 } // 2 = active permission, per the schema above
 );
 
-// 3. Each signer signs the SAME transaction object client-side.
+// 3. Each signer signs the SAME transaction object client-side, and POSTs
+//    the result to POST /proposals/:id/sign as { signerAddress, signedRawTx }.
+//    The backend stores it in proposals.raw_tx_json and never sees a
+//    private key. It does NOT verify the signature cryptographically —
+//    the network does that when the transaction is finally broadcast.
 let multiSignedTx = await tronWeb.trx.multiSign(unsignedTx, signer1PrivateKey, 2);
 multiSignedTx = await tronWeb.trx.multiSign(multiSignedTx, signer2PrivateKey, 2);
 
-// 4. Once weight >= threshold, broadcast.
+// 4. Once weight >= threshold, POST /proposals/:id/broadcast calls this:
 const result = await tronWeb.trx.sendRawTransaction(multiSignedTx);
 ```
 
-The backend's `multisig.service.js` `confirmProposal`/`broadcastProposal`
-functions currently implement the **contract-backed** path in full; the
-native-only path (step 3/4 above) needs the raw transaction object shared
-across signer requests — typically via the `proposals.data_hex`-adjacent
-storage of the unsigned tx, or by having the frontend collect all
-signatures client-side before ever calling `/broadcast`. This is flagged
-as a TODO in `multisig.service.js` (`broadcastProposal` throws for
-native-only wallets) — pick the storage approach that fits your frontend
-before wiring it up.
+Both paths are fully implemented in `multisig.service.js`:
+
+- **Contract-backed** (`wallets.contract_address` set): `createProposal`
+  calls `submitTransaction` on-chain immediately; `confirmProposal` calls
+  `confirmTransaction`; `broadcastProposal` calls `executeTransaction`.
+- **Native-permission** (`contract_address` is `NULL`): `createProposal`
+  builds the *unsigned* raw transaction via
+  `transactionBuilder.sendTrx(..., { permissionId: 2 })` and stores it;
+  each `confirmProposal` call expects the client to have already run
+  `tronWeb.trx.multiSign()` against the current `raw_tx_json` and submit
+  the result as `signedRawTx`; `broadcastProposal` calls
+  `tronWeb.trx.sendRawTransaction(raw_tx_json)` once enough signatures
+  have accumulated. An invalid or missing signature is rejected by the
+  network at broadcast time, not earlier.
+
+**Current limitation:** the native path only supports plain TRX transfers
+(`dataHex === '0x'`). TRC-20/contract calls under native permissions
+require building the transaction via
+`transactionBuilder.triggerSmartContract(...)` with decoded
+function/parameter arguments rather than raw ABI-encoded `data` — that's
+not yet wired into `createProposal`. Contract-backed wallets already
+support arbitrary `data` natively, so route TRC-20 transfer proposals
+through a contract-backed wallet until this is added.
 
 ---
 

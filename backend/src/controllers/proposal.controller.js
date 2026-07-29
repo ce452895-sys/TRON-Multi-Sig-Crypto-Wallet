@@ -48,18 +48,22 @@ async function getProposal(req, res, next) {
 
 async function signProposal(req, res, next) {
   try {
-    const { signerAddress } = req.body;
+    const { signerAddress, signedRawTx } = req.body;
     if (!signerAddress) return res.status(400).json({ error: 'signerAddress is required' });
 
     const proposal = await multisig.confirmProposal({
       proposalId: req.params.id,
       signerAddress,
+      signedRawTx,
     });
 
     res.json(proposal);
   } catch (err) {
     if (err.code === 'NOT_AN_OWNER') {
       return res.status(403).json({ error: err.message });
+    }
+    if (['MISSING_SIGNED_TX', 'NO_NEW_SIGNATURE', 'TX_MISMATCH'].includes(err.code)) {
+      return res.status(400).json({ error: err.code, message: err.message });
     }
     next(err);
   }
@@ -72,6 +76,9 @@ async function broadcastProposal(req, res, next) {
   } catch (err) {
     if (err.code === 'NOT_ENOUGH_CONFIRMATIONS') {
       return res.status(409).json({ error: err.code, details: err.details });
+    }
+    if (err.code === 'BROADCAST_REJECTED') {
+      return res.status(422).json({ error: err.code, message: err.message });
     }
     next(err);
   }
