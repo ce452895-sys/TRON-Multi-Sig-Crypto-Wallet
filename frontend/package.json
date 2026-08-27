@@ -17,7 +17,8 @@
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.2",
     "tailwindcss": "^4.3.3",
-    "tronweb": "^6.4.0"
+    "tronweb": "^6.4.0",
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
