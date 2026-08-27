@@ -1,89 +1,112 @@
 import { useState } from "react";
 
+type Transaction = {
+  id: string;
+  amount: string;
+  recipient: string;
+  approvals: number;
+  required: number;
+  status: "Pending" | "Completed";
+};
+
 export default function RecentTransactions() {
-  const [approvals, setApprovals] = useState(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    {
+      id: "#001",
+      amount: "500 TRX",
+      recipient: "TXYZ...8K2P",
+      approvals: 0,
+      required: 2,
+      status: "Pending",
+    },
+    {
+      id: "#002",
+      amount: "150 USDT",
+      recipient: "TABC...4M9Q",
+      approvals: 2,
+      required: 2,
+      status: "Completed",
+    },
+  ]);
 
-  const requiredApprovals = 2;
-  const completed = approvals >= requiredApprovals;
+  function approveTransaction(id: string) {
+    setTransactions((current) =>
+      current.map((tx) => {
+        if (tx.id !== id || tx.status === "Completed") {
+          return tx;
+        }
 
-  function approveTransaction() {
-    setApprovals((current) => Math.min(current + 1, requiredApprovals));
+        const approvals = Math.min(tx.approvals + 1, tx.required);
+
+        return {
+          ...tx,
+          approvals,
+          status: approvals >= tx.required ? "Completed" : "Pending",
+        };
+      })
+    );
   }
 
   return (
-    <div
-  id="approve-transaction"
-  className="bg-slate-900 rounded-xl p-5 mt-8"
->
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold">Recent Transactions</h2>
+    <section
+      id="recent-transactions"
+      className="bg-slate-900 rounded-2xl p-6 mt-8"
+    >
+      <h2 className="text-2xl font-bold mb-6">
+        Recent Transactions
+      </h2>
 
-        <span className="text-sm text-slate-400">
-          Demo approval flow
-        </span>
-      </div>
-
-      <div className="space-y-4">
-        <div className="border border-slate-800 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold">#001</p>
-              <p className="text-slate-400">500 TRX</p>
-            </div>
-
-            <div className="text-right">
-              <p
-                className={
-                  completed
-                    ? "text-green-400 font-semibold"
-                    : "text-yellow-400 font-semibold"
-                }
-              >
-                {completed ? "Completed" : "Pending"}
-              </p>
-
-              <p className="text-slate-400">
-                {approvals}/{requiredApprovals} approvals
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="w-full bg-slate-800 rounded-full h-2">
-              <div
-                className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                style={{
-                  width: `${(approvals / requiredApprovals) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={approveTransaction}
-            disabled={completed}
-            className={`w-full mt-4 py-3 rounded-lg font-semibold transition ${
-              completed
-                ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                : "bg-purple-600 hover:bg-purple-700 text-white"
-            }`}
+      <div className="space-y-5">
+        {transactions.map((tx) => (
+          <div
+            key={tx.id}
+            className="border-b border-slate-700 pb-5 last:border-b-0 last:pb-0"
           >
-            {completed ? "Transaction Completed" : "Approve TX"}
-          </button>
-        </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-bold text-lg">{tx.id}</p>
+                <p className="text-slate-400 mt-1">
+                  {tx.amount}
+                </p>
+                <p className="text-slate-500 text-sm mt-1">
+                  To: {tx.recipient}
+                </p>
+              </div>
 
-        <div className="flex justify-between border-b border-slate-800 pb-3">
-          <div>
-            <p className="font-semibold">#002</p>
-            <p className="text-slate-400">150 USDT</p>
-          </div>
+              <div className="text-right">
+                <p
+                  className={
+                    tx.status === "Completed"
+                      ? "text-green-400 font-semibold"
+                      : "text-yellow-400 font-semibold"
+                  }
+                >
+                  {tx.status}
+                </p>
 
-          <div className="text-right">
-            <p className="text-green-400">Completed</p>
-            <p className="text-slate-400">2/2 approvals</p>
+                <p className="text-slate-400 mt-1">
+                  {tx.approvals} / {tx.required} approvals
+                </p>
+              </div>
+            </div>
+
+            {tx.status === "Pending" && (
+              <button
+                onClick={() => approveTransaction(tx.id)}
+                className="w-full mt-4 rounded-lg bg-purple-600 hover:bg-purple-700 py-3 font-semibold transition"
+              >
+                Approve {tx.id}
+              </button>
+            )}
+
+            {tx.status === "Completed" && (
+              <div className="mt-4 rounded-lg bg-green-500/10 border border-green-500/30 p-3 text-center text-green-400 font-semibold">
+                ✓ Transaction fully approved
+              </div>
+            )}
           </div>
-        </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
